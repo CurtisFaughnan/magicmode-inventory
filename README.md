@@ -1,10 +1,10 @@
-# Vishnu Inventory
+# MagicMode Inventory
 
 Production inventory control built from the company bill of materials.
 
 ## Live app
 
-[Open Vishnu Inventory](https://vishnu-inventory-control.faughnancurtis2.chatgpt.site)
+[Open MagicMode Inventory](https://magicmode-inventory.faughnancurtis2.chatgpt.site)
 
 The app supports receiving packages, consuming individual materials, recording a complete chair build, undoing recent stock movements, low-stock alerts below five builds, and a durable transaction history.
 
