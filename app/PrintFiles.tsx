@@ -1,0 +1,17 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+type PrintFile={id:number;version:string;fileName:string;contentType:string;sizeBytes:number;notes:string;createdAt:string};
+type Item={id:number;name:string};
+
+const size=(bytes:number)=>bytes<1024?`${bytes} B`:bytes<1048576?`${(bytes/1024).toFixed(1)} KB`:`${(bytes/1048576).toFixed(1)} MB`;
+
+export default function PrintFiles({item,onClose}:{item:Item;onClose:()=>void}){
+  const [files,setFiles]=useState<PrintFile[]>([]);const [version,setVersion]=useState("");const [notes,setNotes]=useState("");const [file,setFile]=useState<File|null>(null);const [busy,setBusy]=useState(false);const [error,setError]=useState("");
+  async function load(){const r=await fetch(`/api/items/${item.id}/print-files`);const data=await r.json();if(r.ok)setFiles(data);else setError(data.error||"Files could not be loaded.");}
+  useEffect(()=>{load();},[item.id]);
+  async function upload(e:React.FormEvent){e.preventDefault();if(!file)return;setBusy(true);setError("");const body=new FormData();body.set("file",file);body.set("version",version.trim()||`v${files.length+1}`);body.set("notes",notes.trim());const r=await fetch(`/api/items/${item.id}/print-files`,{method:"POST",body});const data=await r.json();if(!r.ok)setError(data.error||"Upload failed.");else{setFile(null);setVersion("");setNotes("");const input=document.getElementById("print-file") as HTMLInputElement|null;if(input)input.value="";await load();}setBusy(false);}
+  async function remove(entry:PrintFile){if(!confirm(`Delete ${entry.fileName} (${entry.version})?`))return;const r=await fetch(`/api/print-files/${entry.id}`,{method:"DELETE"});if(r.ok)await load();else{const data=await r.json();setError(data.error||"File could not be deleted.");}}
+  return <div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><section className="modal file-modal"><button type="button" className="close" onClick={onClose}>×</button><p className="eyebrow">3D PRINT FILES</p><h2>{item.name}</h2><p className="muted">Upload revised designs without losing earlier versions.</p>{error&&<p className="file-error">{error}</p>}<form className="file-upload" onSubmit={upload}><label>Design file<input id="print-file" type="file" required onChange={e=>setFile(e.target.files?.[0]||null)} accept=".stl,.step,.stp,.3mf,.obj,.gcode,.zip,.f3d,.sldprt,.iges,.igs"/></label><div className="file-fields"><label>Version<input required placeholder="e.g. v2.1" value={version} onChange={e=>setVersion(e.target.value)}/></label><label>Version notes<input placeholder="What changed?" value={notes} onChange={e=>setNotes(e.target.value)}/></label></div><button className="primary" disabled={busy}>{busy?"Uploading…":"Upload version"}</button></form><div className="version-list"><h3>Version history</h3>{files.map((entry,index)=><article key={entry.id}><div><strong>{entry.version} {index===0&&<span className="current-version">Current</span>}</strong><p>{entry.fileName} · {size(entry.sizeBytes)}</p>{entry.notes&&<small>{entry.notes}</small>}<time>{new Date(entry.createdAt).toLocaleString()}</time></div><div className="file-actions"><a className="ghost" href={`/api/print-files/${entry.id}/download`}>Download</a><button type="button" onClick={()=>remove(entry)}>Delete</button></div></article>)}{!files.length&&<div className="empty">No design files uploaded yet.</div>}</div></section></div>;
+}
