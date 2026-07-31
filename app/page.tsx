@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import PrintFiles from "./PrintFiles";
 import ChairCost from "./ChairCost";
+import LoginScreen from "./LoginScreen";
 
 type Item = { id:number; partNumber:string; name:string; description:string; category:string; qtyNeeded:number; qtyOnHand:number; unitCost:number|null; unit:string; supplier:string; leadTime:string; bomLevel:number|null; notes:string; purchaseUrl:string };
 type Tx = { id:number; itemId:number; itemName:string; kind:"receive"|"use"|"adjust"; quantity:number; reference:string; note:string; createdAt:string };
@@ -23,9 +24,10 @@ export default function Home() {
   const [printItem,setPrintItem]=useState<Item|null>(null);
   const [receivePicker,setReceivePicker]=useState(false);
   const [costOpen,setCostOpen]=useState(false);
+  const [authReady,setAuthReady]=useState(false);const [authUser,setAuthUser]=useState<{id:number;name:string}|null>(null);
 
   async function refresh(){ setBusy(true); const [a,b]=await Promise.all([fetch("/api/items"),fetch("/api/transactions")]); setItems(await a.json()); setTransactions(await b.json()); setBusy(false); }
-  useEffect(()=>{refresh().catch(()=>setBusy(false));},[]);
+  useEffect(()=>{fetch("/api/auth/status").then(r=>r.json()).then(data=>{if(data.authenticated){setAuthUser(data.user);return refresh();}setBusy(false);}).finally(()=>setAuthReady(true));},[]);
   const stats=useMemo(()=>({total:items.length, low:items.filter(i=>buildCoverage(i)<5).length, builds:items.length?Math.min(...items.filter(i=>i.qtyNeeded>0).map(buildCoverage)):0, value:items.reduce((s,i)=>s+i.qtyOnHand*(i.unitCost||0),0)}),[items]);
   const categories=useMemo(()=>Array.from(new Set(items.map(i=>i.category||"Other"))).sort(),[items]);
   const shown=items.filter(i=>{const q=search.toLowerCase(); const matches=!q||[i.partNumber,i.name,i.description,i.supplier,i.category].some(v=>(v||"").toLowerCase().includes(q)); return matches&&(filter==="all"||filter===stockStatus(i))&&(typeFilter==="all"||typeFilter===(i.category||"Other"));});
@@ -38,11 +40,14 @@ export default function Home() {
   function newItem(){setIsNewItem(true);setItemEditor({...blankItem});}
   function editItem(item:Item){setIsNewItem(false);setItemEditor({...item});}
   function field<K extends keyof Item>(key:K,value:Item[K]){setItemEditor(current=>current?{...current,[key]:value}:current);}
-  async function saveItem(e:React.FormEvent){e.preventDefault();if(!itemEditor)return;const path=isNewItem?"/api/items":`/api/items/${itemEditor.id}`;const r=await fetch(path,{method:isNewItem?"POST":"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(itemEditor)});const data=await r.json();if(!r.ok){setMessage(data.error||"The item could not be saved.");return;}setItemEditor(null);setMessage(isNewItem?"New inventory item added.":"Inventory item updated.");await refresh();}
+  async function saveItem(e:React.FormEvent){e.preventDefault();if(!itemEditor)return;const previous=items.find(i=>i.id===itemEditor.id);const priceChanged=!isNewItem&&previous?.unitCost!==itemEditor.unitCost;let priceChangeReason="Initial price";if(priceChanged){const answer=prompt("Why was this price changed?");if(!answer?.trim())return;priceChangeReason=answer.trim();}const path=isNewItem?"/api/items":`/api/items/${itemEditor.id}`;const r=await fetch(path,{method:isNewItem?"POST":"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({...itemEditor,priceChangeReason})});const data=await r.json();if(!r.ok){setMessage(data.error||"The item could not be saved.");return;}setItemEditor(null);setMessage(isNewItem?"New inventory item added.":"Inventory item updated.");await refresh();}
   async function deleteItem(){if(!itemEditor||isNewItem)return;if(!confirm(`Delete ${itemEditor.name}? This also removes its activity history and purchase link.`))return;const r=await fetch(`/api/items/${itemEditor.id}`,{method:"DELETE"});const data=await r.json();if(!r.ok){setMessage(data.error||"The item could not be deleted.");return;}setItemEditor(null);setMessage("Inventory item deleted.");await refresh();}
 
+  async function logout(){await fetch("/api/auth/logout",{method:"POST"});setAuthUser(null);setItems([]);setTransactions([]);}
+  if(!authReady)return <main className="login-page"><div className="login-card"><p>Loading MagicMode Inventory…</p></div></main>;
+  if(!authUser)return <LoginScreen onLogin={user=>{setAuthUser(user);refresh();}}/>;
   return <main>
-    <header className="topbar"><div className="brand"><img className="brand-logo" src="/magicmode-logo.png" alt="MagicMode"/><div><strong>Inventory Control</strong><small>Production materials</small></div></div><div className="header-actions"><button className="ghost undo" disabled={!transactions.length||busy} onClick={undo}>↶ Undo</button><button className="chair" disabled={busy} onClick={newChair}>+ New Chair</button><button className="primary receive-top" onClick={()=>setReceivePicker(true)}>+ Receive stock</button></div></header>
+    <header className="topbar"><div className="brand"><img className="brand-logo" src="/magicmode-logo.png" alt="MagicMode"/><div><strong>Inventory Control</strong><small>Production materials</small></div></div><div className="header-actions"><span className="signed-in">{authUser.name}</span><button className="ghost logout" onClick={logout}>Sign out</button><button className="ghost undo" disabled={!transactions.length||busy} onClick={undo}>↶ Undo</button><button className="chair" disabled={busy} onClick={newChair}>+ New Chair</button><button className="primary receive-top" onClick={()=>setReceivePicker(true)}>+ Receive stock</button></div></header>
     {message&&<div className="notice"><span>{message}</span><button onClick={()=>setMessage("")}>×</button></div>}
     <section className="hero"><div><p className="eyebrow">INVENTORY OVERVIEW</p><h1>Know what you have.<br/><span>Build with confidence.</span></h1><p className="lede">Live stock levels from your BOM, with every package received and every item used recorded in one place.</p></div><div className="build-card"><span>BUILD READINESS</span><strong>{stats.builds}</strong><p>complete unit{stats.builds===1?"":"s"} ready</p><div className="meter"><i style={{width:`${Math.min(100,stats.builds*20)}%`}}/></div><small>Based on the tightest BOM component</small></div></section>
     <section className="stats"><article><span>Total parts</span><strong>{stats.total}</strong><small>Active BOM lines</small></article><article className={stats.low?"warn":""}><span>Needs attention</span><strong>{stats.low}</strong><small>Below 5 builds</small></article><article><span>Inventory value</span><strong>{money.format(stats.value)}</strong><small>Known unit costs</small></article><article><span>Recent movement</span><strong>{transactions.length}</strong><small>Logged transactions</small></article></section>
