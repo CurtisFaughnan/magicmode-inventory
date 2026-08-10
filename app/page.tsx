@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import PrintFiles from "./PrintFiles";
 import ChairCost from "./ChairCost";
 import LoginScreen from "./LoginScreen";
+import BuildPlanner from "./BuildPlanner";
 
 type Item = { id:number; partNumber:string; name:string; description:string; category:string; qtyNeeded:number; qtyOnHand:number; unitCost:number|null; unit:string; supplier:string; leadTime:string; bomLevel:number|null; notes:string; purchaseUrl:string };
 type Tx = { id:number; itemId:number; itemName:string; kind:"receive"|"use"|"adjust"; quantity:number; reference:string; note:string; createdAt:string };
@@ -63,5 +64,6 @@ export default function Home() {
     {printItem&&<PrintFiles item={printItem} onClose={()=>setPrintItem(null)}/>}
     {costOpen&&<ChairCost items={items} onClose={()=>setCostOpen(false)} onSaved={refresh}/>}
     {receivePicker&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setReceivePicker(false)}><section className="modal receive-picker"><button type="button" className="close" onClick={()=>setReceivePicker(false)}>×</button><p className="eyebrow">RECEIVE STOCK</p><h2>Choose an item</h2><p className="muted">Select any inventory part to add the package quantity.</p><label>Inventory item<select autoFocus defaultValue="" onChange={e=>{const item=items.find(i=>i.id===Number(e.target.value));if(item){setReceivePicker(false);open("receive",item);}}}><option value="" disabled>Select a part…</option>{items.map(item=><option key={item.id} value={item.id}>{item.name}{item.partNumber?` · ${item.partNumber}`:""}</option>)}</select></label></section></div>}
+    <BuildPlanner items={items}/>
   </main>
 }
