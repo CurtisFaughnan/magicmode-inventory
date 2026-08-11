@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS chair_models (chair_id INTEGER PRIMARY KEY, file_name TEXT NOT NULL, storage_key TEXT NOT NULL UNIQUE, content_type TEXT NOT NULL, size_bytes INTEGER NOT NULL, uploaded_by TEXT NOT NULL, created_at TEXT NOT NULL);
