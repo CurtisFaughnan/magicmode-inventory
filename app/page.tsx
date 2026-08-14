@@ -9,13 +9,13 @@ import ChairTracker from "./ChairTracker";
 import HardwareTracker from "./HardwareTracker";
 import DataSheets from "./DataSheets";
 
-type Item = { id:number; partNumber:string; name:string; description:string; category:string; qtyNeeded:number; qtyOnHand:number; unitCost:number|null; unit:string; supplier:string; leadTime:string; bomLevel:number|null; notes:string; purchaseUrl:string };
+type Item = { id:number; partNumber:string; name:string; description:string; category:string; qtyNeeded:number; qtyOnHand:number; unitCost:number|null; unit:string; supplier:string; leadTime:string; bomLevel:number|null; notes:string; purchaseUrl:string; isOptional:boolean };
 type Tx = { id:number; itemId:number; itemName:string; kind:"receive"|"use"|"adjust"; quantity:number; reference:string; note:string; createdAt:string };
 
 const money = new Intl.NumberFormat("en-US", { style:"currency", currency:"USD" });
 const buildCoverage=(item:Item)=>item.qtyNeeded>0?Math.floor(item.qtyOnHand/item.qtyNeeded):0;
 const stockStatus=(item:Item)=>item.qtyOnHand<=0?"out":buildCoverage(item)<5?"low":"ready";
-const blankItem:Item={id:0,partNumber:"",name:"",description:"",category:"Other",qtyNeeded:1,qtyOnHand:0,unitCost:null,unit:"pcs",supplier:"",leadTime:"",bomLevel:1,notes:"",purchaseUrl:""};
+const blankItem:Item={id:0,partNumber:"",name:"",description:"",category:"Other",qtyNeeded:1,qtyOnHand:0,unitCost:null,unit:"pcs",supplier:"",leadTime:"",bomLevel:1,notes:"",purchaseUrl:"",isOptional:false};
 
 export default function Home() {
   const [items,setItems]=useState<Item[]>([]); const [transactions,setTransactions]=useState<Tx[]>([]);
@@ -33,7 +33,7 @@ export default function Home() {
 
   async function refresh(){ setBusy(true); const [a,b]=await Promise.all([fetch("/api/items"),fetch("/api/transactions")]); setItems(await a.json()); setTransactions(await b.json()); setBusy(false); }
   useEffect(()=>{fetch("/api/auth/status").then(r=>r.json()).then(data=>{if(data.authenticated){setAuthUser(data.user);return refresh();}setBusy(false);}).finally(()=>setAuthReady(true));},[]);
-  const stats=useMemo(()=>({total:items.length, low:items.filter(i=>buildCoverage(i)<5).length, builds:items.length?Math.min(...items.filter(i=>i.qtyNeeded>0).map(buildCoverage)):0, value:items.reduce((s,i)=>s+i.qtyOnHand*(i.unitCost||0),0)}),[items]);
+  const stats=useMemo(()=>{const standard=items.filter(i=>!i.isOptional&&i.qtyNeeded>0);return{total:items.length,low:standard.filter(i=>buildCoverage(i)<5).length,builds:standard.length?Math.min(...standard.map(buildCoverage)):0,value:items.reduce((s,i)=>s+i.qtyOnHand*(i.unitCost||0),0)}},[items]);
   const categories=useMemo(()=>Array.from(new Set(items.map(i=>i.category||"Other"))).sort(),[items]);
   const shown=items.filter(i=>{const q=search.toLowerCase(); const matches=!q||[i.partNumber,i.name,i.description,i.supplier,i.category].some(v=>(v||"").toLowerCase().includes(q)); return matches&&(filter==="all"||filter===stockStatus(i))&&(typeFilter==="all"||typeFilter===(i.category||"Other"));});
   async function submit(e:React.FormEvent){e.preventDefault(); if(!dialog)return; await fetch("/api/transactions",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({itemId:dialog.item.id,kind:dialog.kind,quantity:Number(qty),reference,note})}); setDialog(null);setQty("1");setReference("");setNote("");await refresh();}
