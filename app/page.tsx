@@ -9,18 +9,19 @@ import ChairTracker from "./ChairTracker";
 import HardwareTracker from "./HardwareTracker";
 import DataSheets from "./DataSheets";
 import ChairRequirements from "./ChairRequirements";
+import PartFolders from "./PartFolders";
 
-type Item = { id:number; partNumber:string; name:string; description:string; category:string; qtyNeeded:number; qtyOnHand:number; unitCost:number|null; unit:string; supplier:string; leadTime:string; bomLevel:number|null; notes:string; purchaseUrl:string; isOptional:boolean };
+type Item = { id:number; partNumber:string; name:string; description:string; category:string; itemGroup:string; qtyNeeded:number; qtyOnHand:number; unitCost:number|null; unit:string; supplier:string; leadTime:string; bomLevel:number|null; notes:string; purchaseUrl:string; isOptional:boolean };
 type Tx = { id:number; itemId:number; itemName:string; kind:"receive"|"use"|"adjust"; quantity:number; reference:string; note:string; createdAt:string };
 
 const money = new Intl.NumberFormat("en-US", { style:"currency", currency:"USD" });
 const buildCoverage=(item:Item)=>item.qtyNeeded>0?Math.floor(item.qtyOnHand/item.qtyNeeded):0;
 const stockStatus=(item:Item)=>item.qtyOnHand<=0?"out":buildCoverage(item)<5?"low":"ready";
-const blankItem:Item={id:0,partNumber:"",name:"",description:"",category:"Other",qtyNeeded:1,qtyOnHand:0,unitCost:null,unit:"pcs",supplier:"",leadTime:"",bomLevel:1,notes:"",purchaseUrl:"",isOptional:false};
+const blankItem:Item={id:0,partNumber:"",name:"",description:"",category:"Other",itemGroup:"",qtyNeeded:1,qtyOnHand:0,unitCost:null,unit:"pcs",supplier:"",leadTime:"",bomLevel:1,notes:"",purchaseUrl:"",isOptional:false};
 
 export default function Home() {
   const [items,setItems]=useState<Item[]>([]); const [transactions,setTransactions]=useState<Tx[]>([]);
-  const [search,setSearch]=useState(""); const [filter,setFilter]=useState("all"); const [typeFilter,setTypeFilter]=useState("all"); const [tab,setTab]=useState<"inventory"|"requirements"|"chairs"|"hardware"|"activity">("inventory");
+  const [search,setSearch]=useState(""); const [filter,setFilter]=useState("all"); const [typeFilter,setTypeFilter]=useState("all"); const [tab,setTab]=useState<"inventory"|"folders"|"requirements"|"chairs"|"hardware"|"activity">("inventory");
   const [busy,setBusy]=useState(true); const [dialog,setDialog]=useState<{kind:"receive"|"use"|"adjust";item:Item}|null>(null);
   const [qty,setQty]=useState("1"); const [reference,setReference]=useState(""); const [note,setNote]=useState("");
   const [message,setMessage]=useState("");
@@ -57,7 +58,8 @@ export default function Home() {
     {message&&<div className="notice"><span>{message}</span><button onClick={()=>setMessage("")}>×</button></div>}
     <section className="hero"><div><p className="eyebrow">INVENTORY OVERVIEW</p><h1>Know what you have.<br/><span>Build with confidence.</span></h1><p className="lede">Live stock levels from your BOM, with every package received and every item used recorded in one place.</p></div><div className="build-card"><span>BUILD READINESS</span><strong>{stats.builds}</strong><p>complete unit{stats.builds===1?"":"s"} ready</p><div className="meter"><i style={{width:`${Math.min(100,stats.builds*20)}%`}}/></div><small>Based on the tightest BOM component</small></div></section>
     <section className="stats"><article><span>Total parts</span><strong>{stats.total}</strong><small>Active BOM lines</small></article><article className={stats.low?"warn":""}><span>Needs attention</span><strong>{stats.low}</strong><small>Below 5 builds</small></article><article><span>Inventory value</span><strong>{money.format(stats.value)}</strong><small>Known unit costs</small></article><article><span>Recent movement</span><strong>{transactions.length}</strong><small>Logged transactions</small></article></section>
-    <nav className="tabs"><button className={tab==="inventory"?"active":""} onClick={()=>setTab("inventory")}>Inventory</button><button className={tab==="requirements"?"active":""} onClick={()=>setTab("requirements")}>Chair Requirements</button><button className={tab==="chairs"?"active":""} onClick={()=>setTab("chairs")}>Chair Tracker</button><button className={tab==="hardware"?"active":""} onClick={()=>setTab("hardware")}>PCB / Jetsons</button><button className={tab==="activity"?"active":""} onClick={()=>setTab("activity")}>Activity log</button></nav>
+    <nav className="tabs"><button className={tab==="inventory"?"active":""} onClick={()=>setTab("inventory")}>Inventory</button><button className={tab==="folders"?"active":""} onClick={()=>setTab("folders")}>Part Folders</button><button className={tab==="requirements"?"active":""} onClick={()=>setTab("requirements")}>Chair Requirements</button><button className={tab==="chairs"?"active":""} onClick={()=>setTab("chairs")}>Chair Tracker</button><button className={tab==="hardware"?"active":""} onClick={()=>setTab("hardware")}>PCB / Jetsons</button><button className={tab==="activity"?"active":""} onClick={()=>setTab("activity")}>Activity log</button></nav>
+    {tab==="folders"&&<PartFolders items={items}/>} 
     {tab==="requirements"&&<ChairRequirements items={items} onSaved={refresh}/>}
     {tab==="chairs"&&<ChairTracker items={items} onInventoryChange={refresh}/>}
     {tab==="hardware"&&<HardwareTracker/>}
