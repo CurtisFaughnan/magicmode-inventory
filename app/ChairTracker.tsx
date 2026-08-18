@@ -1,10 +1,10 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
 import ChairModelViewer from "./ChairModelViewer";
-type Item={id:number;partNumber:string;name:string;category:string;qtyNeeded:number;qtyOnHand:number;unit:string};type Chair={id:number;name:string;chairColor:string;remoteColor:string;notes:string};type Part={chairId:number;itemId:number;quantity:number};type Asset={id:number;chairId:number;type:string;partId:string;status:string;updatedAt:string};type Appearance={chairId:number;chairColor:string;remoteColor:string;wheelPosition:"F"|"M"};
+type Item={id:number;partNumber:string;name:string;category:string;qtyNeeded:number;qtyOnHand:number;unit:string;isOptional:boolean};type Chair={id:number;name:string;chairColor:string;remoteColor:string;notes:string};type Part={chairId:number;itemId:number;quantity:number};type Asset={id:number;chairId:number;type:string;partId:string;status:string;updatedAt:string};type Appearance={chairId:number;chairColor:string;remoteColor:string;wheelPosition:"F"|"M"};
 export default function ChairTracker({items,onInventoryChange}:{items:Item[];onInventoryChange:()=>Promise<void>}){
  const[chairs,setChairs]=useState<Chair[]>([]),[parts,setParts]=useState<Part[]>([]),[assets,setAssets]=useState<Asset[]>([]),[appearances,setAppearances]=useState<Appearance[]>([]),[active,setActive]=useState<number|null>(null),[message,setMessage]=useState("");
- const bom=useMemo(()=>items.filter(i=>i.qtyNeeded>0&&i.category.toLowerCase()!=="battery"&&!i.name.toLowerCase().includes("battery")),[items]);
+ const bom=useMemo(()=>items.filter(i=>!i.isOptional&&i.qtyNeeded>0&&i.category.toLowerCase()!=="battery"&&!i.name.toLowerCase().includes("battery")),[items]);
  async function load(){const[r,m]=await Promise.all([fetch("/api/chairs"),fetch("/api/chair-appearance")]),d=await r.json(),meta=await m.json();setChairs(d.chairs||[]);setParts(d.parts||[]);setAssets(d.assets||[]);setAppearances(meta||[])}useEffect(()=>{load()},[]);
  const complete=(id:number)=>assets.filter(a=>a.chairId===id&&a.status==="Installed").length>=8||(bom.length>0&&bom.every(i=>(parts.find(p=>p.chairId===id&&p.itemId===i.id)?.quantity||0)>=i.qtyNeeded));
  const look=(c:Chair)=>appearances.find(a=>a.chairId===c.id)||{chairId:c.id,chairColor:c.chairColor||"#3274bb",remoteColor:c.remoteColor||"#14161e",wheelPosition:"M" as const};

@@ -8,6 +8,7 @@ import BuildPlanner from "./BuildPlanner";
 import ChairTracker from "./ChairTracker";
 import HardwareTracker from "./HardwareTracker";
 import DataSheets from "./DataSheets";
+import ChairRequirements from "./ChairRequirements";
 
 type Item = { id:number; partNumber:string; name:string; description:string; category:string; qtyNeeded:number; qtyOnHand:number; unitCost:number|null; unit:string; supplier:string; leadTime:string; bomLevel:number|null; notes:string; purchaseUrl:string; isOptional:boolean };
 type Tx = { id:number; itemId:number; itemName:string; kind:"receive"|"use"|"adjust"; quantity:number; reference:string; note:string; createdAt:string };
@@ -19,7 +20,7 @@ const blankItem:Item={id:0,partNumber:"",name:"",description:"",category:"Other"
 
 export default function Home() {
   const [items,setItems]=useState<Item[]>([]); const [transactions,setTransactions]=useState<Tx[]>([]);
-  const [search,setSearch]=useState(""); const [filter,setFilter]=useState("all"); const [typeFilter,setTypeFilter]=useState("all"); const [tab,setTab]=useState<"inventory"|"chairs"|"hardware"|"activity">("inventory");
+  const [search,setSearch]=useState(""); const [filter,setFilter]=useState("all"); const [typeFilter,setTypeFilter]=useState("all"); const [tab,setTab]=useState<"inventory"|"requirements"|"chairs"|"hardware"|"activity">("inventory");
   const [busy,setBusy]=useState(true); const [dialog,setDialog]=useState<{kind:"receive"|"use"|"adjust";item:Item}|null>(null);
   const [qty,setQty]=useState("1"); const [reference,setReference]=useState(""); const [note,setNote]=useState("");
   const [message,setMessage]=useState("");
@@ -56,7 +57,8 @@ export default function Home() {
     {message&&<div className="notice"><span>{message}</span><button onClick={()=>setMessage("")}>×</button></div>}
     <section className="hero"><div><p className="eyebrow">INVENTORY OVERVIEW</p><h1>Know what you have.<br/><span>Build with confidence.</span></h1><p className="lede">Live stock levels from your BOM, with every package received and every item used recorded in one place.</p></div><div className="build-card"><span>BUILD READINESS</span><strong>{stats.builds}</strong><p>complete unit{stats.builds===1?"":"s"} ready</p><div className="meter"><i style={{width:`${Math.min(100,stats.builds*20)}%`}}/></div><small>Based on the tightest BOM component</small></div></section>
     <section className="stats"><article><span>Total parts</span><strong>{stats.total}</strong><small>Active BOM lines</small></article><article className={stats.low?"warn":""}><span>Needs attention</span><strong>{stats.low}</strong><small>Below 5 builds</small></article><article><span>Inventory value</span><strong>{money.format(stats.value)}</strong><small>Known unit costs</small></article><article><span>Recent movement</span><strong>{transactions.length}</strong><small>Logged transactions</small></article></section>
-    <nav className="tabs"><button className={tab==="inventory"?"active":""} onClick={()=>setTab("inventory")}>Inventory</button><button className={tab==="chairs"?"active":""} onClick={()=>setTab("chairs")}>Chair Tracker</button><button className={tab==="hardware"?"active":""} onClick={()=>setTab("hardware")}>PCB / Jetsons</button><button className={tab==="activity"?"active":""} onClick={()=>setTab("activity")}>Activity log</button></nav>
+    <nav className="tabs"><button className={tab==="inventory"?"active":""} onClick={()=>setTab("inventory")}>Inventory</button><button className={tab==="requirements"?"active":""} onClick={()=>setTab("requirements")}>Chair Requirements</button><button className={tab==="chairs"?"active":""} onClick={()=>setTab("chairs")}>Chair Tracker</button><button className={tab==="hardware"?"active":""} onClick={()=>setTab("hardware")}>PCB / Jetsons</button><button className={tab==="activity"?"active":""} onClick={()=>setTab("activity")}>Activity log</button></nav>
+    {tab==="requirements"&&<ChairRequirements items={items} onSaved={refresh}/>}
     {tab==="chairs"&&<ChairTracker items={items} onInventoryChange={refresh}/>}
     {tab==="hardware"&&<HardwareTracker/>}
     {tab==="inventory"?<section className="panel"><div className="toolbar"><div className="search"><span>⌕</span><input aria-label="Search inventory" placeholder="Search part, description, supplier, or type…" value={search} onChange={e=>setSearch(e.target.value)}/></div><label className="type-filter">Type<select aria-label="Filter by item type" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="all">All types</option>{categories.map(category=><option key={category} value={category}>{category}</option>)}</select></label><div className="filters">{[["all","All"],["ready","Ready"],["low","Low"],["out","Out"]].map(([v,l])=><button key={v} className={filter===v?"active":""} onClick={()=>setFilter(v)}>{l}</button>)}</div><button className="primary new-item" onClick={newItem}>+ New Item</button></div>
